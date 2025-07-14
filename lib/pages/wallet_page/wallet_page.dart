@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'transactions_page.dart'; // Make sure the path matches your file structure
+import './transactions_page.dart'; // Make sure the path matches your file structure
+import './widgets/deposit_sheet.dart';
 
 class WalletPage extends StatefulWidget {
   const WalletPage({super.key});
@@ -18,52 +19,16 @@ class _WalletPageState extends State<WalletPage> {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (context) {
-        return Container(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text("Buy Coins",
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 12),
-              _buildCoinOption(70, 1.00),
-              _buildCoinOption(350, 5.00),
-              _buildCoinOption(700, 10.00),
-              _buildCoinOption(1400, 20.00),
-              _buildCoinOption(3500, 50.00),
-              _buildCoinOption(7000, 100.00),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildCoinOption(int coins, double price) {
-    return ListTile(
-      leading: Image.asset('assets/icons/spotlight_coin.png', width: 28),
-      title: Text("$coins coins"),
-      trailing: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-        decoration: BoxDecoration(
-          color: Colors.redAccent,
-          borderRadius: BorderRadius.circular(6),
-        ),
-        child: Text(
-          "\$${price.toStringAsFixed(2)}",
-          style: const TextStyle(color: Colors.white),
-        ),
+      builder: (context) => DepositSheet(
+        onCoinPurchase: (coins) {
+          setState(() {
+            coinBalance += coins;
+          });
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text("You bought $coins coins")),
+          );
+        },
       ),
-      onTap: () {
-        Navigator.pop(context);
-        setState(() {
-          coinBalance += coins;
-        });
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("You bought $coins coins")),
-        );
-      },
     );
   }
 
@@ -205,9 +170,12 @@ class _WalletPageState extends State<WalletPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Wallet"),
         backgroundColor: const Color(0xFFFFB74D),
-        foregroundColor: Colors.white,
+        title: const Text(
+          "Wallet",
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+        ),
+        centerTitle: true,
       ),
       body: Column(
         children: [

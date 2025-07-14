@@ -2,16 +2,31 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
-import 'profile_page.dart';
+import '../../services/queue_service.dart';
+import '../spotlight_page/widgets/gift_card.dart';
+import '../spotlight_page/widgets/chat_box_widget.dart';
+import '../spotlight_page/widgets/gift_panel_widget.dart';
+import '../spotlight_page/widgets/viewer_coin_overlay.dart';
+import '../spotlight_page/widgets/countdown_timer_widget.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
-class SpotlightPage extends StatefulWidget {
-  const SpotlightPage({super.key});
+class NearbyStreamPage extends StatefulWidget {
+  final String locationId;
+  final String locationName;
+  final double distance;
+
+  const NearbyStreamPage({
+    super.key,
+    required this.locationId,
+    required this.locationName,
+    required this.distance,
+  });
 
   @override
-  State<SpotlightPage> createState() => _SpotlightPageState();
+  State<NearbyStreamPage> createState() => _NearbyStreamPageState();
 }
 
-class _SpotlightPageState extends State<SpotlightPage> {
+class _NearbyStreamPageState extends State<NearbyStreamPage> {
   final TextEditingController _chatController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   final List<Map<String, dynamic>> _chatMessages = [];
@@ -24,6 +39,14 @@ class _SpotlightPageState extends State<SpotlightPage> {
   String? _comboGiftName;
   int _comboGiftCount = 0;
 
+  // Nearby queue rotation variables
+  Duration _countdown = const Duration(seconds: 20);
+  String _currentLiveUserName = "Waiting...";
+  final QueueService _queueService = QueueService();
+  StreamSubscription<Map<String, dynamic>?>? _liveUserSubscription;
+  StreamSubscription<Map<String, dynamic>?>? _timerSubscription;
+  bool _isDisposed = false;
+
   @override
   void initState() {
     super.initState();
@@ -32,6 +55,45 @@ class _SpotlightPageState extends State<SpotlightPage> {
       setState(() {
         _shouldAutoScroll = atBottom;
       });
+    });
+    _initializeNearbyStream();
+  }
+
+  void _initializeNearbyStream() async {
+    // Don't initialize timer here - let the queue list page handle it
+    // Just listen to the existing timer
+    _listenToNearbyLiveUser();
+    _listenToNearbyTimer();
+  }
+
+  void _listenToNearbyLiveUser() {
+    _liveUserSubscription = _queueService.getNearbyLiveUser(widget.locationId).listen((liveUser) {
+      if (liveUser != null) {
+        setState(() {
+          _currentLiveUserName = liveUser['name'] ?? "Waiting...";
+        });
+      } else {
+        setState(() {
+          _currentLiveUserName = "Waiting...";
+        });
+      }
+    });
+  }
+
+  void _listenToNearbyTimer() {
+    _timerSubscription = _queueService.getNearbyTimer(widget.locationId).listen((timerData) {
+      if (timerData != null) {
+        final countdown = timerData['countdown'] ?? 20;
+        final isActive = timerData['isActive'] ?? false;
+        
+        print('Nearby stream timer update - Countdown: $countdown, IsActive: $isActive');
+        
+        setState(() {
+          _countdown = Duration(seconds: countdown);
+        });
+        
+        // The persistent timer in QueueService handles user rotation
+      }
     });
   }
 
@@ -161,7 +223,12 @@ class _SpotlightPageState extends State<SpotlightPage> {
 
   @override
   void dispose() {
+    _isDisposed = true;
     _giftComboTimer?.cancel();
+    _liveUserSubscription?.cancel();
+    _timerSubscription?.cancel();
+    _chatController.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -170,6 +237,19 @@ class _SpotlightPageState extends State<SpotlightPage> {
     return Scaffold(
       backgroundColor: Colors.black,
       resizeToAvoidBottomInset: true,
+      appBar: AppBar(
+        backgroundColor: const Color(0xFFFFB74D),
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: Text(
+          'Nearby Spotlight',
+          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+        ),
+        centerTitle: true,
+      ),
       body: GestureDetector(
         behavior: HitTestBehavior.translucent,
         onTap: () => FocusScope.of(context).unfocus(),
@@ -180,47 +260,96 @@ class _SpotlightPageState extends State<SpotlightPage> {
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Row(
-                      children: [
-                        const CircleAvatar(
-                          radius: 16,
-                          backgroundImage: AssetImage('assets/images/dummy1.png'),
-                        ),
-                        const SizedBox(width: 8),
-                        const Text("@streamqueen", style: TextStyle(color: Colors.white)),
-                        const SizedBox(width: 8),
-                        GestureDetector(
-                          onTap: () {
-                            Navigator.push(context, MaterialPageRoute(builder: (_) => const ProfilePage()));
-                          },
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: Color(0xFFFFB74D),
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: const Text("+Follow", style: TextStyle(color: Colors.white)),
-                          ),
-                        ),
-                      ],
+                    const CircleAvatar(
+                      radius: 16,
+                      backgroundColor: Colors.white24,
+                      child: Icon(Icons.person, size: 16, color: Colors.white),
                     ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Row(
+                        children: [
+                          Text(
+                            "@${_currentLiveUserName.toLowerCase().replaceAll(' ', '')}",
+                            style: const TextStyle(color: Colors.white),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          const SizedBox(width: 8),
+                          GestureDetector(
+                            onTap: () {
+                              // Navigate to profile page
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFFFB74D),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: const Text("+Follow", style: TextStyle(color: Colors.white)),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
                         Row(
-                          children: const [
-                            Icon(Icons.remove_red_eye, color: Color(0xFFFFB74D), size: 16),
-                            SizedBox(width: 4),
-                            Text("1.2K", style: TextStyle(color: Colors.white)),
+                          children: [
+                            const Icon(Icons.remove_red_eye, color: Color(0xFFFFB74D), size: 16),
+                            const SizedBox(width: 4),
+                            const Text(
+                              "1.2K",
+                              style: TextStyle(color: Colors.white, fontSize: 12),
+                            ),
                           ],
                         ),
+                        const SizedBox(height: 4),
+                        Row(
+                          children: [
+                            const Icon(Icons.timer, color: Color(0xFFFFB74D), size: 16),
+                            const SizedBox(width: 4),
+                            StreamBuilder<Map<String, dynamic>?>(
+                              stream: _queueService.getNearbyTimer(widget.locationId),
+                              builder: (context, snapshot) {
+                                if (!snapshot.hasData) return const SizedBox.shrink();
+                                final data = snapshot.data!;
+                                final countdown = data['countdown'] ?? 20;
+                                final isActive = data['isActive'] ?? false;
+                                
+                                // Check if there's a live user to determine if timer should be active
+                                return StreamBuilder<Map<String, dynamic>?>(
+                                  stream: _queueService.getNearbyLiveUser(widget.locationId),
+                                  builder: (context, liveUserSnapshot) {
+                                    final hasLiveUser = liveUserSnapshot.hasData && liveUserSnapshot.data != null;
+                                    // If there's a live user, show timer as active (white) regardless of isActive flag
+                                    // Also show as active if timer is active (to prevent flickering during stream loading)
+                                    // If live user stream is still loading, assume active if timer is active
+                                    final shouldShowActive = hasLiveUser || isActive || (liveUserSnapshot.connectionState == ConnectionState.waiting && isActive);
+                                    
+                                    if (!shouldShowActive) return const SizedBox.shrink();
+                                    
+                                    return Text(
+                                      '$countdown s',
+                                      style: const TextStyle(color: Colors.white, fontSize: 12),
+                                    );
+                                  },
+                                );
+                              },
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
                         Row(
                           children: [
                             const Icon(FontAwesomeIcons.coins, color: Color(0xFFFFB74D), size: 16),
                             const SizedBox(width: 4),
-                            Text("$_coinTotal", style: const TextStyle(color: Colors.white)),
+                            Text(
+                              "$_coinTotal",
+                              style: const TextStyle(color: Colors.white, fontSize: 12),
+                            ),
                           ],
                         ),
                       ],
@@ -258,7 +387,7 @@ class _SpotlightPageState extends State<SpotlightPage> {
                               constraints: const BoxConstraints(maxWidth: 250),
                               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                               decoration: BoxDecoration(
-                                color: isGift ? Color(0xFFFFB74D) : Colors.white12,
+                                color: isGift ? const Color(0xFFFFB74D) : Colors.white12,
                                 borderRadius: BorderRadius.circular(12),
                               ),
                               child: RichText(
@@ -328,96 +457,4 @@ class _SpotlightPageState extends State<SpotlightPage> {
       ),
     );
   }
-}
-
-class GiftCard extends StatefulWidget {
-  final IconData icon;
-  final String label;
-  final int coinValue;
-  final VoidCallback onTap;
-
-  const GiftCard({
-    required this.icon,
-    required this.label,
-    required this.coinValue,
-    required this.onTap,
-  });
-
-  @override
-  State<GiftCard> createState() => _GiftCardState();
-}
-
-class _GiftCardState extends State<GiftCard> {
-  int _tapCount = 0;
-  Timer? _timer;
-  bool _wasTapped = false;
-
-  Color _getBurnColor(int taps) {
-    if (!_wasTapped) return Colors.grey[200]!;
-    if (taps < 5) return Colors.yellow;
-    if (taps < 10) return Colors.amber;
-    if (taps < 20) return Color(0xFFFFB74D);
-    if (taps < 40) return Colors.deepOrange;
-    if (taps < 80) return Colors.red;
-    return Colors.black;
-  }
-
-  void _handleTap() {
-    widget.onTap();
-    HapticFeedback.mediumImpact();
-
-    setState(() {
-      _tapCount++;
-      _wasTapped = true;
-    });
-
-    _timer?.cancel();
-    _timer = Timer(const Duration(seconds: 1), () {
-      setState(() {
-        _tapCount = 0;
-        _wasTapped = false;
-      });
-    });
-  }
-
-  @override
-  void dispose() {
-    _timer?.cancel();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final burnColor = _getBurnColor(_tapCount);
-
-    return GestureDetector(
-      onTap: _handleTap,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          AnimatedContainer(
-            duration: const Duration(milliseconds: 200),
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: burnColor,
-              shape: BoxShape.circle,
-            ),
-            child: _tapCount > 1
-                ? Text(
-                    '+$_tapCount',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 14,
-                    ),
-                  )
-                : Icon(widget.icon, size: 18, color: Color(0xFFFFB74D)),
-          ),
-          const SizedBox(height: 4),
-          Text(widget.label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-          Text('${widget.coinValue}', style: const TextStyle(fontSize: 10)),
-        ],
-      ),
-    );
-  }
-}
+} 

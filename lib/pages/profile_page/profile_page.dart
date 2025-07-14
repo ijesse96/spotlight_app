@@ -1,10 +1,11 @@
-
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:smooth_page_indicator/smooth_page_indicator.dart';
 import 'package:image_picker/image_picker.dart';
-import 'settings_page.dart';
+import './settings_page.dart';
+import './widgets/settings_button.dart';
+import './widgets/profile_header.dart';
+import './widgets/social_links_section.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -48,57 +49,22 @@ class _ProfilePageState extends State<ProfilePage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Profile'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.settings),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const SettingsPage()),
-              );
-            },
-          ),
+        backgroundColor: const Color(0xFFFFB74D),
+        title: const Text(
+          'Profile',
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+        ),
+        centerTitle: true,
+        actions: const [
+          SettingsButton(),
         ],
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
         child: Column(
           children: [
-            const CircleAvatar(
-              radius: 60,
-              backgroundImage: AssetImage('assets/avatar_placeholder.png'),
-            ),
-            const SizedBox(height: 16),
-            const Text(
-              'StreamQueen',
-              style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 10),
-            const Text(
-              "Hello! I'm a variety streamer on Twitch.",
-              style: TextStyle(fontSize: 16),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 24),
-            _socialButton(
-              icon: FontAwesomeIcons.instagram,
-              label: 'Instagram',
-              onTap: () {},
-            ),
-            const SizedBox(height: 16),
-            _socialButton(
-              icon: FontAwesomeIcons.twitch,
-              label: 'Twitch',
-              onTap: () {},
-            ),
-            const SizedBox(height: 16),
-            _socialButton(
-              icon: FontAwesomeIcons.globe,
-              label: 'Website',
-              onTap: () {},
-            ),
-            const SizedBox(height: 30),
+            const ProfileHeader(),
+            const SocialLinksSection(),
             SizedBox(
               height: 360,
               child: PageView.builder(
@@ -175,31 +141,6 @@ class _ProfilePageState extends State<ProfilePage> {
               ),
             ),
             const SizedBox(height: 40),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _socialButton({
-    required IconData icon,
-    required String label,
-    required VoidCallback onTap,
-  }) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
-        decoration: BoxDecoration(
-          border: Border.all(color: Colors.grey.shade300),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Row(
-          children: [
-            FaIcon(icon, size: 22),
-            const SizedBox(width: 14),
-            Text(label, style: const TextStyle(fontSize: 16)),
           ],
         ),
       ),

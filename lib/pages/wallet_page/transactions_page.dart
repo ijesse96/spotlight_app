@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import './widgets/transaction_tile.dart';
 
 class TransactionsPage extends StatelessWidget {
   const TransactionsPage({super.key});
@@ -14,9 +15,12 @@ class TransactionsPage extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Transaction History"),
         backgroundColor: const Color(0xFFFFB74D),
-        foregroundColor: Colors.white,
+        title: const Text(
+          "Transaction History",
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+        ),
+        centerTitle: true,
       ),
       body: ListView.separated(
         padding: const EdgeInsets.all(16),
@@ -24,24 +28,7 @@ class TransactionsPage extends StatelessWidget {
         separatorBuilder: (context, index) => const Divider(height: 20),
         itemBuilder: (context, index) {
           final tx = transactions[index];
-          final formattedDate = DateFormat("MMM d, yyyy • h:mm a").format(tx["timestamp"]);
-          final isPositive = tx["amount"] >= 0;
-          final amountDisplay = tx["type"] == "Deposit"
-              ? "+${tx["amount"]} coins"
-              : "\$${tx["amount"].abs().toStringAsFixed(2)}";
-
-          return ListTile(
-            leading: Icon(
-              tx["type"] == "Gift"
-                  ? Icons.card_giftcard
-                  : tx["type"] == "Withdraw"
-                      ? Icons.arrow_upward
-                      : Icons.arrow_downward,
-              color: tx["type"] == "Withdraw" ? Colors.red : Colors.green,
-            ),
-            title: Text(amountDisplay, style: const TextStyle(fontWeight: FontWeight.bold)),
-            subtitle: Text("${tx["type"]} • $formattedDate"),
-          );
+          return TransactionTile(transaction: tx);
         },
       ),
     );

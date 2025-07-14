@@ -15,6 +15,14 @@ dependencies:
   smooth_page_indicator: ^1.1.0
   intl: ^0.18.1  # 🟧 Added for date formatting
   image_picker: ^1.1.2
+  url_launcher: ^6.2.5
+  firebase_core: ^2.25.4
+  firebase_auth: ^4.17.4
+  cloud_firestore: ^4.15.4
+  geolocator: ^11.0.0
+  geoflutterfire2: ^2.3.15
+  permission_handler: ^11.3.1
+  app_settings: ^5.1.1
 
 dev_dependencies:
   flutter_test:

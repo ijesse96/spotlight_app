@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
-import 'local_queue_detail_page.dart';
-import 'local_spotlight_page.dart';
+import './local_queue_detail_page.dart';
+import './local_spotlight_page.dart';
+import './spotlight_queue_widget.dart';
+import './local_tab_widget.dart';
 
 class LiveQueuePage extends StatefulWidget {
-  const LiveQueuePage({super.key});
+  final int initialTabIndex;
+  
+  const LiveQueuePage({super.key, this.initialTabIndex = 0});
 
   @override
   State<LiveQueuePage> createState() => _LiveQueuePageState();
@@ -11,11 +15,31 @@ class LiveQueuePage extends StatefulWidget {
 
 class _LiveQueuePageState extends State<LiveQueuePage> with SingleTickerProviderStateMixin {
   late TabController _tabController;
+  Key _spotlightKey = UniqueKey();
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+    
+    // Listen to tab changes and force a new key for Spotlight tab
+    _tabController.addListener(() {
+      if (_tabController.index == 1) {
+        setState(() {
+          _spotlightKey = UniqueKey();
+        });
+      }
+    });
+    
+    // Set the initial tab based on the parameter
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (widget.initialTabIndex == 1) {
+        _tabController.animateTo(1);
+        setState(() {
+          _spotlightKey = UniqueKey();
+        });
+      }
+    });
   }
 
   @override
@@ -94,8 +118,9 @@ class _LiveQueuePageState extends State<LiveQueuePage> with SingleTickerProvider
                       context,
                       MaterialPageRoute(
                         builder: (context) => LocalSpotlightPage(
-                          eventName: title,
-                          viewerCount: usersInQueue,
+                          locationId: 'test-location',
+                          liveUserName: "Emma",
+                          viewerCount: 1200,
                         ),
                       ),
                     );
@@ -114,15 +139,15 @@ class _LiveQueuePageState extends State<LiveQueuePage> with SingleTickerProvider
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: const Color(0xFFFFB74D),
         elevation: 0,
         centerTitle: true,
-        title: const Text('Live Queue', style: TextStyle(color: Colors.black)),
+        title: const Text('Live Queue', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
         bottom: TabBar(
           controller: _tabController,
-          labelColor: const Color(0xFFFFB74D),
-          unselectedLabelColor: Colors.grey,
-          indicatorColor: const Color(0xFFFFB74D),
+          labelColor: Colors.white,
+          unselectedLabelColor: Colors.white70,
+          indicatorColor: Colors.white,
           tabs: const [
             Tab(text: 'Local'),
             Tab(text: 'Spotlight'),
@@ -133,18 +158,14 @@ class _LiveQueuePageState extends State<LiveQueuePage> with SingleTickerProvider
         controller: _tabController,
         children: [
           // Local tab
-          ListView(
-            children: [
-              _buildQueueCard('UCLA Campus', 7),
-              _buildQueueCard('Crypto Arena – Lakers Game', 12),
-              _buildQueueCard('Drake at SoFi Stadium', 19),
-            ],
-          ),
+          const LocalTabWidget(),
 
-          // Spotlight tab (placeholder)
-          const Center(child: Text('Spotlight Coming Soon...')),
+          // Spotlight tab
+          SpotlightQueueWidget(key: _spotlightKey),
         ],
       ),
     );
   }
 }
+
+

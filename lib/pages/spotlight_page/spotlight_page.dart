@@ -2,23 +2,25 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
-import 'profile_page.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:spotlight_app/pages/profile_page/profile_page.dart';
+import '../live_queue_page/live_queue_page.dart';
+import '../../main.dart';
+import '../../services/queue_service.dart';
+import 'widgets/gift_card.dart';
+import 'widgets/chat_box_widget.dart';
+import 'widgets/gift_panel_widget.dart';
+import 'widgets/viewer_coin_overlay.dart';
+import 'widgets/countdown_timer_widget.dart';
 
-class LocalSpotlightPage extends StatefulWidget {
-  final String eventName;
-  final int viewerCount;
-
-  const LocalSpotlightPage({
-    required this.eventName,
-    required this.viewerCount,
-    super.key,
-  });
+class SpotlightPage extends StatefulWidget {
+  const SpotlightPage({super.key});
 
   @override
-  State<LocalSpotlightPage> createState() => _LocalSpotlightPageState();
+  State<SpotlightPage> createState() => _SpotlightPageState();
 }
 
-class _LocalSpotlightPageState extends State<LocalSpotlightPage> {
+class _SpotlightPageState extends State<SpotlightPage> {
   final TextEditingController _chatController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   final List<Map<String, dynamic>> _chatMessages = [];
@@ -31,15 +33,90 @@ class _LocalSpotlightPageState extends State<LocalSpotlightPage> {
   String? _comboGiftName;
   int _comboGiftCount = 0;
 
+  // Main Spotlight queue rotation variables
+  Duration _countdown = const Duration(seconds: 20);
+  String _currentLiveUserName = "Waiting...";
+  final QueueService _queueService = QueueService();
+  StreamSubscription<Map<String, dynamic>?>? _liveUserSubscription;
+  StreamSubscription<Map<String, dynamic>?>? _timerSubscription;
+  bool _isDisposed = false;
+
   @override
   void initState() {
     super.initState();
     _scrollController.addListener(() {
-      final atBottom = _scrollController.offset >= _scrollController.position.maxScrollExtent;
+      final atBottom = _scrollController.offset >= _scrollController.position.maxScrollExtent - 10;
       setState(() {
         _shouldAutoScroll = atBottom;
       });
     });
+    _initializeMainSpotlightStream();
+  }
+
+  void _initializeMainSpotlightStream() async {
+    // Don't initialize timer here - let the queue widget handle it
+    // Just listen to the existing timer
+    _listenToLiveUser();
+    _listenToSpotlightTimer();
+    
+    // Ensure timer is active if there's a live user
+    await _ensureTimerActive();
+  }
+
+  Future<void> _ensureTimerActive() async {
+    // Check if there's a live user and timer should be active
+    final liveUser = await _queueService.getCurrentLiveUser().first;
+    if (liveUser != null) {
+      final timerData = await _queueService.getSpotlightTimer().first;
+      if (timerData != null) {
+        final isActive = timerData['isActive'] ?? false;
+        if (!isActive) {
+          // Activate timer if there's a live user but timer is not active
+          await _queueService.updateSpotlightTimer(timerData['countdown'] ?? 20, true);
+        }
+      }
+    }
+  }
+
+  void _listenToLiveUser() {
+    _liveUserSubscription = _queueService.getCurrentLiveUser().listen((liveUser) {
+      if (liveUser != null) {
+        setState(() {
+          _currentLiveUserName = liveUser['name'] ?? "Waiting...";
+        });
+      } else {
+        setState(() {
+          _currentLiveUserName = "Waiting...";
+        });
+      }
+    });
+  }
+
+  void _listenToSpotlightTimer() {
+    _timerSubscription = _queueService.getSpotlightTimer().listen((timerData) {
+      if (timerData != null) {
+        final countdown = timerData['countdown'] ?? 20;
+        final isActive = timerData['isActive'] ?? false;
+        
+        print('Spotlight stream timer update - Countdown: $countdown, IsActive: $isActive');
+        
+        setState(() {
+          _countdown = Duration(seconds: countdown);
+        });
+      }
+    });
+  }
+
+  void _listenToSpotlightChat() {
+    // This method is no longer needed as chat messages are managed locally
+  }
+
+  void _listenToSpotlightGiftTotal() {
+    // This method is no longer needed as gift total is managed locally
+  }
+
+  Future<void> _addTestChatMessages() async {
+    // This method is no longer needed as we use local messages
   }
 
   void _sendChatMessage(String username, String message, {bool isGift = false}) {
@@ -168,6 +245,11 @@ class _LocalSpotlightPageState extends State<LocalSpotlightPage> {
 
   @override
   void dispose() {
+    _isDisposed = true;
+    _liveUserSubscription?.cancel();
+    _timerSubscription?.cancel();
+    _chatController.dispose();
+    _scrollController.dispose();
     _giftComboTimer?.cancel();
     super.dispose();
   }
@@ -177,6 +259,15 @@ class _LocalSpotlightPageState extends State<LocalSpotlightPage> {
     return Scaffold(
       backgroundColor: Colors.black,
       resizeToAvoidBottomInset: true,
+      appBar: AppBar(
+        backgroundColor: const Color(0xFFFFB74D),
+        elevation: 0,
+        title: const Text(
+          'Spotlight',
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+        ),
+        centerTitle: true,
+      ),
       body: GestureDetector(
         behavior: HitTestBehavior.translucent,
         onTap: () => FocusScope.of(context).unfocus(),
@@ -188,12 +279,6 @@ class _LocalSpotlightPageState extends State<LocalSpotlightPage> {
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: Row(
                   children: [
-                    IconButton(
-                      icon: const Icon(Icons.arrow_back, color: Colors.white),
-                      onPressed: () {
-                        Navigator.pop(context);
-                      },
-                    ),
                     const CircleAvatar(
                       radius: 16,
                       backgroundColor: Colors.white24,
@@ -201,49 +286,97 @@ class _LocalSpotlightPageState extends State<LocalSpotlightPage> {
                     ),
                     const SizedBox(width: 8),
                     Expanded(
-                      child: Text(
-                        "@${widget.eventName.toLowerCase().replaceAll(' ', '')}",
-                        style: const TextStyle(color: Colors.white),
-                        overflow: TextOverflow.ellipsis,
+                      child: Row(
+                        children: [
+                          Text(
+                            "@${_currentLiveUserName.toLowerCase().replaceAll(' ', '')}",
+                            style: const TextStyle(color: Colors.white),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          const SizedBox(width: 8),
+                          GestureDetector(
+                            onTap: () {
+                              // Navigate to profile page
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFFFB74D),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: const Text("+Follow", style: TextStyle(color: Colors.white)),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                    const SizedBox(width: 8),
-                    GestureDetector(
-                      onTap: () {
-                        Navigator.push(context, MaterialPageRoute(builder: (_) => const ProfilePage()));
-                      },
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: Color(0xFFFFB74D),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: const Text("+Follow", style: TextStyle(color: Colors.white)),
-                      ),
-                    ),
-
                     const SizedBox(width: 8),
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
                         Row(
                           children: [
-                            Icon(Icons.remove_red_eye, color: Color(0xFFFFB74D), size: 16),
-                            SizedBox(width: 4),
-                            Text(
-                              "${widget.viewerCount}",
+                            const Icon(Icons.remove_red_eye, color: Color(0xFFFFB74D), size: 16),
+                            const SizedBox(width: 4),
+                            const Text(
+                              "1.2K",
                               style: TextStyle(color: Colors.white, fontSize: 12),
                             ),
                           ],
                         ),
-                        SizedBox(height: 4),
+                        const SizedBox(height: 4),
                         Row(
                           children: [
-                            Icon(FontAwesomeIcons.coins, color: Color(0xFFFFB74D), size: 16),
-                            SizedBox(width: 4),
+                            const Icon(Icons.timer, color: Color(0xFFFFB74D), size: 16),
+                            const SizedBox(width: 4),
+                            StreamBuilder<Map<String, dynamic>?>(
+                              stream: _queueService.getSpotlightTimer(),
+                              builder: (context, snapshot) {
+                                if (!snapshot.hasData) {
+                                  return const SizedBox(
+                                    width: 18,
+                                    height: 18,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFFFB74D)),
+                                    ),
+                                  );
+                                }
+                                
+                                final data = snapshot.data!;
+                                final countdown = data['countdown'] ?? 20;
+                                final isActive = data['isActive'] ?? false;
+                                
+                                // Check if there's a live user to determine if timer should be active
+                                return StreamBuilder<Map<String, dynamic>?>(
+                                  stream: _queueService.getCurrentLiveUser(),
+                                  builder: (context, liveUserSnapshot) {
+                                    final hasLiveUser = liveUserSnapshot.hasData && liveUserSnapshot.data != null;
+                                    // If there's a live user, show timer as active (white) regardless of isActive flag
+                                    // Also show as active if timer is active (to prevent flickering during stream loading)
+                                    // If live user stream is still loading, assume active if timer is active
+                                    final shouldShowActive = hasLiveUser || isActive || (liveUserSnapshot.connectionState == ConnectionState.waiting && isActive);
+                                    
+                                    if (!shouldShowActive) return const SizedBox.shrink();
+                                    
+                                    return Text(
+                                      '$countdown s',
+                                      style: const TextStyle(color: Colors.white, fontSize: 12),
+                                    );
+                                  },
+                                );
+                              },
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        Row(
+                          children: [
+                            const Icon(FontAwesomeIcons.coins, color: Color(0xFFFFB74D), size: 16),
+                            const SizedBox(width: 4),
                             Text(
                               "$_coinTotal",
-                              style: TextStyle(color: Colors.white, fontSize: 12),
+                              style: const TextStyle(color: Colors.white, fontSize: 12),
                             ),
                           ],
                         ),
@@ -282,7 +415,7 @@ class _LocalSpotlightPageState extends State<LocalSpotlightPage> {
                               constraints: const BoxConstraints(maxWidth: 250),
                               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                               decoration: BoxDecoration(
-                                color: isGift ? Color(0xFFFFB74D) : Colors.white12,
+                                color: isGift ? const Color(0xFFFFB74D) : Colors.white12,
                                 borderRadius: BorderRadius.circular(12),
                               ),
                               child: RichText(
@@ -380,7 +513,7 @@ class _GiftCardState extends State<GiftCard> {
     if (!_wasTapped) return Colors.grey[200]!;
     if (taps < 5) return Colors.yellow;
     if (taps < 10) return Colors.amber;
-    if (taps < 20) return Color(0xFFFFB74D);
+    if (taps < 20) return const Color(0xFFFFB74D);
     if (taps < 40) return Colors.deepOrange;
     if (taps < 80) return Colors.red;
     return Colors.black;
@@ -435,7 +568,7 @@ class _GiftCardState extends State<GiftCard> {
                       fontSize: 14,
                     ),
                   )
-                : Icon(widget.icon, size: 18, color: Color(0xFFFFB74D)),
+                : Icon(widget.icon, size: 18, color: const Color(0xFFFFB74D)),
           ),
           const SizedBox(height: 4),
           Text(widget.label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),

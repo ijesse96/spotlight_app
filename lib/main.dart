@@ -1,11 +1,34 @@
 import 'package:flutter/material.dart';
-import 'spotlight_page.dart';
-import 'wallet_page.dart';
-import 'live_queue_page.dart';
-import 'leaderboard_page.dart';
-import 'profile_page.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'firebase_options.dart';
+import 'services/auth_service.dart';
+import 'services/location_service.dart';
+import 'services/queue_service.dart';
+import 'pages/spotlight_page/spotlight_page.dart';
+import 'pages/wallet_page/wallet_page.dart';
+import 'pages/live_queue_page/live_queue_page.dart';
+import 'pages/leaderboard_page/leaderboard_page.dart';
+import 'package:spotlight_app/pages/profile_page/profile_page.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
+  await FirebaseAuth.instance.signInAnonymously();
+  
+  // Initialize location service and request permissions
+  final locationService = LocationService();
+  await locationService.requestLocationPermission();
+  
+  // Initialize persistent timers
+  final queueService = QueueService();
+  await queueService.initializePersistentTimers();
+  
+  // Start persistent timers for any existing live sessions
+  await queueService.startPersistentTimersForExistingSessions();
+  
   runApp(const SpotlightApp());
 }
 
@@ -27,22 +50,30 @@ class SpotlightApp extends StatelessWidget {
 }
 
 class MainNavigation extends StatefulWidget {
-  const MainNavigation({super.key});
+  final int initialTabIndex;
+  
+  const MainNavigation({super.key, this.initialTabIndex = 2});
 
   @override
   State<MainNavigation> createState() => _MainNavigationState();
 }
 
 class _MainNavigationState extends State<MainNavigation> {
-  int _currentIndex = 2;
+  late int _currentIndex;
 
-  final List<Widget> _pages = const [
-    ProfilePage(),
-    LiveQueuePage(),
-    SpotlightPage(),
-    LeaderboardPage(),
-    WalletPage(),
+  final List<Widget> _pages = [
+    const ProfilePage(),
+    const LiveQueuePage(),
+    const SpotlightPage(),
+    const LeaderboardPage(),
+    const WalletPage(),
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    _currentIndex = widget.initialTabIndex;
+  }
 
   @override
   Widget build(BuildContext context) {
