@@ -1,6 +1,12 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    // User management - users can only access their own profile
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+      allow create: if request.auth != null && request.auth.uid == userId;
+    }
+    
     // Allow authenticated users to read and write to spotlight_queue collection
     match /spotlight_queue/{document} {
       allow read: if request.auth != null;
@@ -101,6 +107,12 @@ service cloud.firestore {
       allow read: if request.auth != null;
       allow create, update, delete: if request.auth != null && 
         request.auth.uid == document;
+    }
+    
+    // Test collection for debugging (development only)
+    match /test/{document} {
+      allow read: if request.auth != null;
+      allow write: if false; // Read-only for testing
     }
     
     // Default rule - deny all other access

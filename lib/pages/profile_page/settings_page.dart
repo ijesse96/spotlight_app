@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../wallet_page/transactions_page.dart'; // Added import
+import '../../services/auth_service.dart';
 import './widgets/settings_tile.dart';
 
 class SettingsPage extends StatelessWidget {
@@ -51,7 +52,7 @@ class SettingsPage extends StatelessWidget {
           SettingsTile(
             icon: Icons.logout,
             title: "Log Out",
-            onTap: () {
+            onTap: () async {
               showDialog(
                 context: context,
                 builder: (context) => AlertDialog(
@@ -63,11 +64,22 @@ class SettingsPage extends StatelessWidget {
                       child: const Text("Cancel"),
                     ),
                     ElevatedButton(
-                      onPressed: () {
+                      onPressed: () async {
                         Navigator.pop(context);
+                        try {
+                          await AuthService().signOut();
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text("Logged out successfully")),
+                            );
+                          }
+                        } catch (e) {
+                          if (context.mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text("Logged out")),
+                              SnackBar(content: Text("Error logging out: $e")),
                         );
+                          }
+                        }
                       },
                       child: const Text("Log Out"),
                     ),
