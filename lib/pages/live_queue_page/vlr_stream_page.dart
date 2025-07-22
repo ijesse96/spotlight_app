@@ -276,13 +276,18 @@ class _VLRStreamPageState extends State<VLRStreamPage> {
                     Expanded(
                       child: Row(
                         children: [
-                          Text(
+                          Flexible(
+                            flex: 2,
+                            child: Text(
                             "@${_currentLiveUserName.toLowerCase().replaceAll(' ', '')}",
                             style: const TextStyle(color: Colors.white),
                             overflow: TextOverflow.ellipsis,
+                            ),
                           ),
                           const SizedBox(width: 8),
-                          GestureDetector(
+                          Flexible(
+                            flex: 0,
+                            child: GestureDetector(
                             onTap: () {
                               // Navigate to profile page
                             },
@@ -293,6 +298,7 @@ class _VLRStreamPageState extends State<VLRStreamPage> {
                                 borderRadius: BorderRadius.circular(12),
                               ),
                               child: const Text("+Follow", style: TextStyle(color: Colors.white)),
+                              ),
                             ),
                           ),
                         ],

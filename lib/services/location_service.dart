@@ -4,16 +4,58 @@ import 'package:geolocator/geolocator.dart';
 import 'package:geoflutterfire2/geoflutterfire2.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:app_settings/app_settings.dart';
+import 'profile_service.dart';
 
 class LocationService {
+  static final LocationService _instance = LocationService._internal();
+  factory LocationService() => _instance;
+  LocationService._internal();
+
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
+  final ProfileService _profileService = ProfileService();
   final GeoFlutterFire _geo = GeoFlutterFire();
 
   // Collection references
   CollectionReference get _localStreamsCollection => _firestore.collection('local_streams');
   CollectionReference get _citiesCollection => _firestore.collection('cities');
   CollectionReference get _verifiedRoomsCollection => _firestore.collection('verified_rooms');
+
+  /// Get the correct user display name from Firestore profile or fallback to Firebase Auth
+  Future<String> _getUserDisplayName() async {
+    try {
+      final user = _auth.currentUser;
+      if (user == null) return 'Unknown User';
+
+      // Try to get the user profile from Firestore first
+      final profile = await _profileService.getUserProfile(user.uid);
+      if (profile != null) {
+        // Use the custom display name from profile (username if available, otherwise name)
+        final displayName = profile.displayName;
+        if (displayName.isNotEmpty) {
+          return displayName;
+        }
+      }
+
+      // Fallback to Firebase Auth displayName
+      if (user.displayName != null && user.displayName!.isNotEmpty) {
+        return user.displayName!;
+      }
+
+      // Final fallback: generate a unique name using last 6 characters of UID
+      final shortUid = user.uid.length > 6 ? user.uid.substring(user.uid.length - 6) : user.uid;
+      return 'User_$shortUid';
+    } catch (e) {
+      print('Error getting user display name: $e');
+      // Fallback to Firebase Auth displayName or generated name
+      final user = _auth.currentUser;
+      if (user?.displayName != null && user!.displayName!.isNotEmpty) {
+        return user.displayName!;
+      }
+      final shortUid = (user?.uid.length ?? 0) > 6 ? user!.uid.substring(user.uid.length - 6) : user?.uid ?? 'Unknown';
+      return 'User_$shortUid';
+    }
+  }
 
   /// Get current user's location
   Future<Position?> getCurrentLocation() async {
@@ -142,14 +184,9 @@ class LocationService {
 
       final uid = user.uid;
       
-      // Generate a user-friendly name for anonymous users
-      String userName;
-      if (user.displayName != null && user.displayName!.isNotEmpty) {
-        userName = user.displayName!;
-      } else {
-        final shortUid = uid.length > 6 ? uid.substring(uid.length - 6) : uid;
-        userName = 'User_$shortUid';
-      }
+      // Get the correct user display name from Firestore profile
+      final userName = await _getUserDisplayName();
+      print('Joining city queue for $cityId, user: $uid, name: $userName');
 
       await _citiesCollection
           .doc(cityId)
@@ -569,14 +606,9 @@ class LocationService {
 
       final uid = user.uid;
       
-      // Generate a user-friendly name for anonymous users
-      String userName;
-      if (user.displayName != null && user.displayName!.isNotEmpty) {
-        userName = user.displayName!;
-      } else {
-        final shortUid = uid.length > 6 ? uid.substring(uid.length - 6) : uid;
-        userName = 'User_$shortUid';
-      }
+      // Get the correct user display name from Firestore profile
+      final userName = await _getUserDisplayName();
+      print('Joining nearby queue for location $locationId, user: $uid, name: $userName');
 
       await _firestore.collection('nearby_queue_$locationId').doc(uid).set({
         'userId': uid,

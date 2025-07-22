@@ -2,6 +2,7 @@
 import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'profile_service.dart';
 
 class QueueService {
   static final QueueService _instance = QueueService._internal();
@@ -10,6 +11,7 @@ class QueueService {
 
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
+  final ProfileService _profileService = ProfileService();
 
   // Persistent timers that run independently of UI
   static Timer? _spotlightTimer;
@@ -29,6 +31,42 @@ class QueueService {
       _firestore.collection('local_live_users_$locationId');
   CollectionReference _getLocalTimerCollection(String locationId) => 
       _firestore.collection('local_timer_$locationId');
+
+  /// Get the correct user display name from Firestore profile or fallback to Firebase Auth
+  Future<String> _getUserDisplayName() async {
+    try {
+      final user = _auth.currentUser;
+      if (user == null) return 'Unknown User';
+
+      // Try to get the user profile from Firestore first
+      final profile = await _profileService.getUserProfile(user.uid);
+      if (profile != null) {
+        // Use the custom display name from profile (username if available, otherwise name)
+        final displayName = profile.displayName;
+        if (displayName.isNotEmpty) {
+          return displayName;
+        }
+      }
+
+      // Fallback to Firebase Auth displayName
+      if (user.displayName != null && user.displayName!.isNotEmpty) {
+        return user.displayName!;
+      }
+
+      // Final fallback: generate a unique name using last 6 characters of UID
+      final shortUid = user.uid.length > 6 ? user.uid.substring(user.uid.length - 6) : user.uid;
+      return 'User_$shortUid';
+    } catch (e) {
+      print('Error getting user display name: $e');
+      // Fallback to Firebase Auth displayName or generated name
+      final user = _auth.currentUser;
+      if (user?.displayName != null && user!.displayName!.isNotEmpty) {
+        return user.displayName!;
+      }
+      final shortUid = (user?.uid.length ?? 0) > 6 ? user!.uid.substring(user.uid.length - 6) : user?.uid ?? 'Unknown';
+      return 'User_$shortUid';
+    }
+  }
 
   /// Get current live user
   Stream<Map<String, dynamic>?> getCurrentLiveUser() {
@@ -75,15 +113,9 @@ class QueueService {
       final uid = user.uid;
       print('Joining main spotlight queue with UID: $uid');
 
-      // Generate a user-friendly name for anonymous users
-      String userName;
-      if (user.displayName != null && user.displayName!.isNotEmpty) {
-        userName = user.displayName!;
-      } else {
-        // Generate a unique name for anonymous users using last 6 characters of UID
-        final shortUid = uid.length > 6 ? uid.substring(uid.length - 6) : uid;
-        userName = 'User_$shortUid';
-      }
+      // Get the correct user display name from Firestore profile
+      final userName = await _getUserDisplayName();
+      print('Using display name: $userName');
 
       // Stop any other active timers to prevent conflicts
       _stopPersistentVLRTimer();
@@ -516,15 +548,9 @@ class QueueService {
       final uid = user.uid;
       print('Joining local queue for location $locationId with UID: $uid');
 
-      // Generate a user-friendly name for anonymous users
-      String userName;
-      if (user.displayName != null && user.displayName!.isNotEmpty) {
-        userName = user.displayName!;
-      } else {
-        // Generate a unique name for anonymous users using last 6 characters of UID
-        final shortUid = uid.length > 6 ? uid.substring(uid.length - 6) : uid;
-        userName = 'User_$shortUid';
-      }
+      // Get the correct user display name from Firestore profile
+      final userName = await _getUserDisplayName();
+      print('Using display name for local queue: $userName');
 
       // Use UID as document ID and call .set() instead of .add()
       await _getLocalQueueCollection(locationId).doc(uid).set({
@@ -1257,17 +1283,9 @@ class QueueService {
 
       final uid = user.uid;
       
-      // Generate a user-friendly name for anonymous users
-      String userName;
-      if (user.displayName != null && user.displayName!.isNotEmpty) {
-        userName = user.displayName!;
-      } else {
-        // Generate a unique name for anonymous users using last 6 characters of UID
-        final shortUid = uid.length > 6 ? uid.substring(uid.length - 6) : uid;
-        userName = 'User_$shortUid';
-      }
-      
-      print('Joining city queue - UID: $uid, Name: $userName, DisplayName: ${user.displayName}');
+      // Get the correct user display name from Firestore profile
+      final userName = await _getUserDisplayName();
+      print('Joining city queue - UID: $uid, Name: $userName');
 
       // Stop any other active timers to prevent conflicts
       _stopPersistentSpotlightTimer();
@@ -1386,8 +1404,9 @@ class QueueService {
       if (user == null) return;
 
       final uid = user.uid;
-      String userName = user.displayName ?? 'User_${uid.substring(uid.length - 6)}';
-
+      
+      // Get the correct user display name from Firestore profile
+      final userName = await _getUserDisplayName();
       print('Joining VLR queue for room: $roomId, user: $userName');
 
       // Stop any other active timers to prevent conflicts
@@ -1482,8 +1501,9 @@ class QueueService {
       if (user == null) return;
 
       final uid = user.uid;
-      String userName = user.displayName ?? 'User_${uid.substring(uid.length - 6)}';
-
+      
+      // Get the correct user display name from Firestore profile
+      final userName = await _getUserDisplayName();
       print('Joining nearby queue for location: $locationId, user: $userName');
 
       // Stop any other active timers to prevent conflicts

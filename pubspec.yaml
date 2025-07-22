@@ -16,6 +16,7 @@ dependencies:
   intl: ^0.18.1  # 🟧 Added for date formatting
   image_picker: ^1.1.2
   url_launcher: ^6.2.5
+  cached_network_image: ^3.3.1
   firebase_core: ^2.25.4
   firebase_auth: ^4.17.4
   cloud_firestore: ^4.15.4

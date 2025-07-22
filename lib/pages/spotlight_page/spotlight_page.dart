@@ -12,6 +12,8 @@ import 'widgets/chat_box_widget.dart';
 import 'widgets/gift_panel_widget.dart';
 import 'widgets/viewer_coin_overlay.dart';
 import 'widgets/countdown_timer_widget.dart';
+import 'widgets/streamer_header_widget.dart';
+import 'widgets/stream_stats_overlay.dart';
 
 class SpotlightPage extends StatefulWidget {
   const SpotlightPage({super.key});
@@ -275,114 +277,19 @@ class _SpotlightPageState extends State<SpotlightPage> {
           child: Column(
             children: [
               const SizedBox(height: 20),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Row(
-                  children: [
-                    const CircleAvatar(
-                      radius: 16,
-                      backgroundColor: Colors.white24,
-                      child: Icon(Icons.person, size: 16, color: Colors.white),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Row(
-                        children: [
-                          Text(
-                            "@${_currentLiveUserName.toLowerCase().replaceAll(' ', '')}",
-                            style: const TextStyle(color: Colors.white),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          const SizedBox(width: 8),
-                          GestureDetector(
-                            onTap: () {
+              StreamerHeaderWidget(
+                username: _currentLiveUserName,
+                onFollowPressed: () {
+                  // Handle follow action
+                },
+                onProfilePressed: () {
                               // Navigate to profile page
                             },
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFFFB74D),
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: const Text("+Follow", style: TextStyle(color: Colors.white)),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        Row(
-                          children: [
-                            const Icon(Icons.remove_red_eye, color: Color(0xFFFFB74D), size: 16),
-                            const SizedBox(width: 4),
-                            const Text(
-                              "1.2K",
-                              style: TextStyle(color: Colors.white, fontSize: 12),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 4),
-                        Row(
-                          children: [
-                            const Icon(Icons.timer, color: Color(0xFFFFB74D), size: 16),
-                            const SizedBox(width: 4),
-                            StreamBuilder<Map<String, dynamic>?>(
-                              stream: _queueService.getSpotlightTimer(),
-                              builder: (context, snapshot) {
-                                if (!snapshot.hasData) {
-                                  return const SizedBox(
-                                    width: 18,
-                                    height: 18,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFFFB74D)),
-                                    ),
-                                  );
-                                }
-                                
-                                final data = snapshot.data!;
-                                final countdown = data['countdown'] ?? 20;
-                                final isActive = data['isActive'] ?? false;
-                                
-                                // Check if there's a live user to determine if timer should be active
-                                return StreamBuilder<Map<String, dynamic>?>(
-                                  stream: _queueService.getCurrentLiveUser(),
-                                  builder: (context, liveUserSnapshot) {
-                                    final hasLiveUser = liveUserSnapshot.hasData && liveUserSnapshot.data != null;
-                                    // If there's a live user, show timer as active (white) regardless of isActive flag
-                                    // Also show as active if timer is active (to prevent flickering during stream loading)
-                                    // If live user stream is still loading, assume active if timer is active
-                                    final shouldShowActive = hasLiveUser || isActive || (liveUserSnapshot.connectionState == ConnectionState.waiting && isActive);
-                                    
-                                    if (!shouldShowActive) return const SizedBox.shrink();
-                                    
-                                    return Text(
-                                      '$countdown s',
-                                      style: const TextStyle(color: Colors.white, fontSize: 12),
-                                    );
-                                  },
-                                );
-                              },
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 4),
-                        Row(
-                          children: [
-                            const Icon(FontAwesomeIcons.coins, color: Color(0xFFFFB74D), size: 16),
-                            const SizedBox(width: 4),
-                            Text(
-                              "$_coinTotal",
-                              style: const TextStyle(color: Colors.white, fontSize: 12),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ],
+                rightOverlay: StreamStatsOverlay(
+                  viewerCount: "1.2K",
+                  coinCount: _coinTotal,
+                  timerStream: _queueService.getSpotlightTimer(),
+                  liveUserStream: _queueService.getCurrentLiveUser(),
                 ),
               ),
               const Spacer(),
