@@ -24,6 +24,9 @@ dependencies:
   geoflutterfire2: ^2.3.15
   permission_handler: ^11.3.1
   app_settings: ^5.1.1
+  agora_rtc_engine: ^6.3.0
+  crypto: ^3.0.3
+  path_provider: ^2.1.4
 
 dev_dependencies:
   flutter_test:

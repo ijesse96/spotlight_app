@@ -52,12 +52,8 @@ class LeaderboardTab extends StatefulWidget {
 class _LeaderboardTabState extends State<LeaderboardTab> {
   PageController? _photoPageController;
   
-  // Mock images for the photo carousel
-  final List<String> mockImages = [
-    'assets/dummy1.png',
-    'assets/dummy2.png',
-    'assets/dummy3.png',
-  ];
+  // Empty list for photos - users will add their own
+  final List<String> mockImages = [];
 
   @override
   void initState() {
@@ -112,50 +108,80 @@ class _LeaderboardTabState extends State<LeaderboardTab> {
           Container(
             height: 200,
             margin: const EdgeInsets.symmetric(horizontal: 16),
-            child: PageView.builder(
-              controller: _photoPageController,
-              itemCount: mockImages.length,
-              physics: const BouncingScrollPhysics(),
-              padEnds: false,
-              itemBuilder: (context, index) {
-                return Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 4),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(12),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.1),
-                        blurRadius: 8,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(12),
-                    child: Image.asset(
-                      mockImages[index],
-                      fit: BoxFit.cover,
-                      width: double.infinity,
+            child: mockImages.isEmpty
+                ? Container(
+                    decoration: BoxDecoration(
+                      color: Colors.grey[100],
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.grey[300]!),
                     ),
+                    child: const Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.photo_library,
+                            size: 48,
+                            color: Colors.grey,
+                          ),
+                          SizedBox(height: 12),
+                          Text(
+                            'No photos yet',
+                            style: TextStyle(
+                              fontSize: 16,
+                              color: Colors.grey,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  )
+                : PageView.builder(
+                    controller: _photoPageController,
+                    itemCount: mockImages.length,
+                    physics: const BouncingScrollPhysics(),
+                    padEnds: false,
+                    itemBuilder: (context, index) {
+                      return Container(
+                        margin: const EdgeInsets.symmetric(horizontal: 4),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(12),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.1),
+                              blurRadius: 8,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(12),
+                          child: Image.asset(
+                            mockImages[index],
+                            fit: BoxFit.cover,
+                            width: double.infinity,
+                          ),
+                        ),
+                      );
+                    },
                   ),
-                );
-              },
-            ),
           ),
           const SizedBox(height: 16),
           
-          // Page indicator
-          SmoothPageIndicator(
-            controller: _photoPageController!,
-            count: mockImages.length,
-            effect: const WormEffect(
-              dotHeight: 8,
-              dotWidth: 8,
-              spacing: 8,
-              dotColor: Colors.grey,
-              activeDotColor: Color(0xFFFFB74D),
+          // Page indicator - only show if there are photos
+          if (mockImages.isNotEmpty)
+            SmoothPageIndicator(
+              controller: _photoPageController!,
+              count: mockImages.length,
+              effect: const WormEffect(
+                dotHeight: 8,
+                dotWidth: 8,
+                spacing: 8,
+                dotColor: Colors.grey,
+                activeDotColor: Color(0xFFFFB74D),
+              ),
             ),
-          ),
           const SizedBox(height: 20),
           
           // Profile content

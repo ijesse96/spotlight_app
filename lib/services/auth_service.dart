@@ -159,6 +159,7 @@ class AuthService {
       // For test numbers, we don't wait here anymore - we'll wait in verifyTestPhoneCode
       if (isTestNumber(phoneNumber)) {
         print('🔥 [AUTH] Test number detected, verification ID will be available in timeout callback');
+        print('🔥 [AUTH] Current verification ID after sendPhoneVerification: $_verificationId');
       }
     } catch (e) {
       print('🔥 [AUTH] Exception in sendPhoneVerification:');
@@ -182,8 +183,27 @@ class AuthService {
       '+15555550007',
       '+15555550008',
       '+15555550009',
+      // Add your specific test number here
+      '+15555550010',
+      '+15555550011',
+      '+15555550012',
+      '+15555550013',
+      '+15555550014',
+      '+15555550015',
+      '+15555550016',
+      '+15555550017',
+      '+15555550018',
+      '+15555550019',
+      // Your custom test number
+      '+19999990000',
     ];
-    return testPatterns.contains(phoneNumber);
+    
+    print('🔥 [AUTH] Checking if $phoneNumber is a test number');
+    print('🔥 [AUTH] Test patterns: $testPatterns');
+    final isTest = testPatterns.contains(phoneNumber);
+    print('🔥 [AUTH] Is test number: $isTest');
+    
+    return isTest;
   }
 
   /// Verifies the SMS code and signs in the user
@@ -234,21 +254,31 @@ class AuthService {
   /// Verifies test phone numbers with manual credential creation
   Future<UserCredential?> verifyTestPhoneCode(String phoneNumber, String smsCode) async {
     try {
-      print(' [AUTH] Verifying test phone code for: $phoneNumber');
-      print(' [AUTH] Test SMS code: $smsCode');
+      print('🔥 [AUTH] Verifying test phone code for: $phoneNumber');
+      print('🔥 [AUTH] Test SMS code: $smsCode');
+      print('🔥 [AUTH] Expected test code: 123456');
       
       // Check if we have a verification ID
       String? verificationId = _verificationId;
-      print(' [AUTH] Current verification ID: $verificationId');
-      print(' [AUTH] Has verification ID: $hasVerificationId');
+      print('🔥 [AUTH] Current verification ID: $verificationId');
+      print('🔥 [AUTH] Has verification ID: $hasVerificationId');
       
       if (verificationId == null) {
-        print(' [AUTH] No verification ID available for test number');
-        print(' [AUTH] This means the verification ID was not set during sendPhoneVerification');
+        print('🔥 [AUTH] No verification ID available for test number');
+        print('🔥 [AUTH] This means the verification ID was not set during sendPhoneVerification');
+        print('🔥 [AUTH] Waiting for verification ID to be set...');
+        
+        // Wait a bit for the verification ID to be set (in case it's still being set)
+        await Future.delayed(const Duration(seconds: 2));
+        verificationId = _verificationId;
+        print('🔥 [AUTH] After delay, verification ID: $verificationId');
+        
+        if (verificationId == null) {
         throw FirebaseAuthException(
           code: 'invalid-verification-id',
           message: 'No verification ID available. Please request a new code first.',
         );
+        }
       }
       
       print(' [AUTH] Using verification ID: ${verificationId.substring(0, 10)}...');

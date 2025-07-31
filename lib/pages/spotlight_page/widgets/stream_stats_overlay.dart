@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../../../services/super_simple_queue.dart';
 
 class StreamStatsOverlay extends StatelessWidget {
   final String viewerCount;
   final int coinCount;
-  final Stream<Map<String, dynamic>?>? timerStream;
-  final Stream<Map<String, dynamic>?>? liveUserStream;
+  final Stream<int>? timerStream;
+  final Stream<SuperSimpleUser?>? liveUserStream;
 
   const StreamStatsOverlay({
     super.key,
@@ -34,7 +35,7 @@ class StreamStatsOverlay extends StatelessWidget {
         ),
         const SizedBox(height: 4),
         if (timerStream != null)
-          StreamBuilder<Map<String, dynamic>?>(
+          StreamBuilder<int>(
             stream: timerStream,
             builder: (context, snapshot) {
               if (!snapshot.hasData) {
@@ -48,22 +49,16 @@ class StreamStatsOverlay extends StatelessWidget {
                 );
               }
               
-              final data = snapshot.data!;
-              final countdown = data['countdown'] ?? 20;
-              final isActive = data['isActive'] ?? false;
+              final countdown = snapshot.data!;
               
               // Check if there's a live user to determine if timer should be active
               if (liveUserStream != null) {
-                return StreamBuilder<Map<String, dynamic>?>(
+                return StreamBuilder<SuperSimpleUser?>(
                   stream: liveUserStream,
                   builder: (context, liveUserSnapshot) {
                     final hasLiveUser = liveUserSnapshot.hasData && liveUserSnapshot.data != null;
-                    // If there's a live user, show timer as active (white) regardless of isActive flag
-                    // Also show as active if timer is active (to prevent flickering during stream loading)
-                    // If live user stream is still loading, assume active if timer is active
-                    final shouldShowActive = hasLiveUser || isActive || (liveUserSnapshot.connectionState == ConnectionState.waiting && isActive);
                     
-                    if (!shouldShowActive) return const SizedBox.shrink();
+                    if (!hasLiveUser || countdown <= 0) return const SizedBox.shrink();
                     
                     return Text(
                       '$countdown s',
@@ -73,8 +68,8 @@ class StreamStatsOverlay extends StatelessWidget {
                 );
               }
               
-              // If no live user stream provided, just check isActive
-              if (!isActive) return const SizedBox.shrink();
+              // If no live user stream provided, just check countdown
+              if (countdown <= 0) return const SizedBox.shrink();
               
               return Text(
                 '$countdown s',

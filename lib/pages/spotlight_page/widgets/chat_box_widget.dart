@@ -127,7 +127,7 @@ class _ChatBoxWidgetState extends State<ChatBoxWidget> with TickerProviderStateM
                       final isGift = msg['isGift'] ?? false;
                       
                       // Add gift toast for gift messages
-                      if (isGift && msg['username'] == 'GiftSender') {
+                      if (isGift && msg['displayName'] == 'GiftSender') {
                         WidgetsBinding.instance.addPostFrameCallback((_) {
                           _addGiftToast('GiftSender', msg['message'], 1);
                         });
@@ -144,7 +144,7 @@ class _ChatBoxWidgetState extends State<ChatBoxWidget> with TickerProviderStateM
                                 radius: 12,
                                 backgroundColor: Colors.white,
                                 child: Text(
-                                  msg['username'][0].toUpperCase(),
+                                  msg['displayName'][0].toUpperCase(),
                                   style: const TextStyle(
                                     fontSize: 10,
                                     fontWeight: FontWeight.bold,
@@ -166,7 +166,7 @@ class _ChatBoxWidgetState extends State<ChatBoxWidget> with TickerProviderStateM
                                       style: const TextStyle(fontSize: 14),
                                       children: [
                                         TextSpan(
-                                          text: msg['username'] + ': ',
+                                          text: msg['displayName'] + ': ',
                                           style: const TextStyle(
                                             fontWeight: FontWeight.bold,
                                             color: Colors.white,

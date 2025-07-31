@@ -27,6 +27,23 @@ class ProfileService {
     });
   }
 
+  // Get current user's profile as Future
+  Future<UserProfile?> getCurrentUserProfileFuture() async {
+    final user = _auth.currentUser;
+    if (user == null) return null;
+
+    try {
+      final doc = await _firestore.collection('users').doc(user.uid).get();
+      if (doc.exists) {
+        return UserProfile.fromFirestore(doc);
+      }
+      return null;
+    } catch (e) {
+      print('Error getting current user profile: $e');
+      return null;
+    }
+  }
+
   // Get user profile by UID
   Future<UserProfile?> getUserProfile(String uid) async {
     try {
@@ -39,6 +56,20 @@ class ProfileService {
       print('Error getting user profile: $e');
       return null;
     }
+  }
+
+  // Get user profile stream by UID
+  Stream<UserProfile?> getUserProfileStream(String uid) {
+    return _firestore
+        .collection('users')
+        .doc(uid)
+        .snapshots()
+        .map((doc) {
+      if (doc.exists) {
+        return UserProfile.fromFirestore(doc);
+      }
+      return null;
+    });
   }
 
   // Update user profile
@@ -187,12 +218,28 @@ class ProfileService {
   // Check if username is available
   Future<bool> isUsernameAvailable(String username) async {
     try {
+      final currentUser = _auth.currentUser;
+      if (currentUser == null) return false;
+
       final query = await _firestore
           .collection('users')
           .where('username', isEqualTo: username)
           .get();
       
-      return query.docs.isEmpty;
+      // If no documents found, username is available
+      if (query.docs.isEmpty) return true;
+      
+      // If documents found, check if it's the current user's username
+      // (meaning they're not changing their username)
+      for (final doc in query.docs) {
+        if (doc.id == currentUser.uid) {
+          // This is the current user's own username, so it's available
+          return true;
+        }
+      }
+      
+      // Username is taken by another user
+      return false;
     } catch (e) {
       print('Error checking username availability: $e');
       return false;

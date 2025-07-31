@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
 import 'services/location_service.dart';
-import 'services/queue_service.dart';
 import 'pages/auth/auth_wrapper.dart';
 
 void main() async {
@@ -26,13 +25,6 @@ void main() async {
     // Initialize location service and request permissions
     final locationService = LocationService();
     await locationService.requestLocationPermission();
-    
-    // Initialize persistent timers
-    final queueService = QueueService();
-    await queueService.initializePersistentTimers();
-    
-    // Start persistent timers for any existing live sessions
-    await queueService.startPersistentTimersForExistingSessions();
   } catch (e) {
     print('🚀 [MAIN] Service initialization failed: $e');
     // Continue with app even if services fail

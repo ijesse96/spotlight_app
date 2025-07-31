@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'dart:io';
 import '../../../models/user_profile.dart';
 import '../../../services/profile_service.dart';
 
@@ -50,6 +51,18 @@ class ProfileHeader extends StatelessWidget {
           profile?.displayName ?? 'User',
           style: const TextStyle(fontSize: 26, fontWeight: FontWeight.bold),
         ),
+        // Show username as secondary information
+        if (profile?.username != null && profile!.username.isNotEmpty) ...[
+          const SizedBox(height: 4),
+          Text(
+            '@${profile!.username}',
+            style: TextStyle(
+              fontSize: 14,
+              color: Colors.grey[600],
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
         const SizedBox(height: 10),
         Text(
           profile?.bio ?? "No bio yet. Tap the edit button to add one!",
@@ -65,12 +78,34 @@ class ProfileHeader extends StatelessWidget {
   }
 
   ImageProvider _getProfileImage() {
+    print("🔍 [DEBUG] Profile avatar URL: ${profile?.avatarUrl}");
+    
     if (profile?.avatarUrl != null && profile!.avatarUrl!.isNotEmpty) {
+      final avatarUrl = profile!.avatarUrl!;
+      
+      // Check if it's a local file path (starts with /)
+      if (avatarUrl.startsWith('/')) {
+        final file = File(avatarUrl);
+        print("🔍 [DEBUG] Avatar file path: $avatarUrl");
+        print("🔍 [DEBUG] Avatar file exists: ${file.existsSync()}");
+        
+        if (file.existsSync()) {
+          return FileImage(file);
+        } else {
+          print("❌ [DEBUG] Avatar file does not exist: $avatarUrl");
+          return const AssetImage('assets/avatar_placeholder.png');
+        }
+      }
+      
+      // Otherwise, treat it as a network URL
+      print("🔍 [DEBUG] Using network image: $avatarUrl");
       return CachedNetworkImageProvider(
-        profile!.avatarUrl!,
-        errorListener: (error) => print('Error loading avatar: $error'),
+        avatarUrl,
+        errorListener: (error) => print('❌ Error loading avatar: $error'),
       );
     }
+    
+    print("🔍 [DEBUG] Using placeholder avatar");
     return const AssetImage('assets/avatar_placeholder.png');
   }
 } 

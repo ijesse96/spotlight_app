@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
+import 'package:path_provider/path_provider.dart';
 import '../../../models/user_profile.dart';
 import '../../../services/profile_service.dart';
 
@@ -123,11 +124,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
             children: [
               CircleAvatar(
                 radius: 60,
-                backgroundImage: _selectedImage != null
-                    ? FileImage(_selectedImage!)
-                    : (widget.profile.avatarUrl != null
-                        ? NetworkImage(widget.profile.avatarUrl!) as ImageProvider
-                        : const AssetImage('assets/avatar_placeholder.png')),
+                backgroundImage: _getAvatarImage(),
               ),
               Positioned(
                 bottom: 0,
@@ -314,6 +311,63 @@ class _EditProfilePageState extends State<EditProfilePage> {
     }
   }
 
+  ImageProvider _getAvatarImage() {
+    // If user selected a new image, show that
+    if (_selectedImage != null) {
+      return FileImage(_selectedImage!);
+    }
+    
+    // If user has an existing avatar, show that
+    if (widget.profile.avatarUrl != null && widget.profile.avatarUrl!.isNotEmpty) {
+      final avatarUrl = widget.profile.avatarUrl!;
+      
+      // Check if it's a local file path (starts with /)
+      if (avatarUrl.startsWith('/')) {
+        return FileImage(File(avatarUrl));
+      }
+      
+      // Otherwise, treat it as a network URL
+      return NetworkImage(avatarUrl);
+    }
+    
+    // Default placeholder
+    return const AssetImage('assets/avatar_placeholder.png');
+  }
+
+  Future<String> _copyImageToPermanentLocation(String originalPath) async {
+    try {
+      final originalFile = File(originalPath);
+      if (!await originalFile.exists()) {
+        throw Exception('Original file does not exist');
+      }
+
+      // Get the app's documents directory for permanent storage
+      final appDir = await getApplicationDocumentsDirectory();
+      final imagesDir = Directory('${appDir.path}/profile_images');
+      
+      // Create the directory if it doesn't exist
+      if (!await imagesDir.exists()) {
+        await imagesDir.create(recursive: true);
+      }
+
+      // Generate a unique filename
+      final timestamp = DateTime.now().millisecondsSinceEpoch;
+      final extension = originalPath.split('.').last;
+      final newFileName = 'profile_image_$timestamp.$extension';
+      final newPath = '${imagesDir.path}/$newFileName';
+
+      // Copy the file to the permanent location
+      await originalFile.copy(newPath);
+      
+      print("🔍 [DEBUG] Image copied from $originalPath to $newPath");
+      return newPath;
+    } catch (e) {
+      print("❌ [DEBUG] Error copying image: $e");
+      // Fallback to original path if copying fails
+      return originalPath;
+    }
+  }
+
   Future<void> _pickImage() async {
     final picker = ImagePicker();
     final pickedFile = await picker.pickImage(
@@ -323,9 +377,20 @@ class _EditProfilePageState extends State<EditProfilePage> {
     );
 
     if (pickedFile != null) {
-      setState(() {
-        _selectedImage = File(pickedFile.path);
-      });
+      try {
+        // Copy image to permanent storage
+        final permanentPath = await _copyImageToPermanentLocation(pickedFile.path);
+        
+        setState(() {
+          _selectedImage = File(permanentPath);
+        });
+      } catch (e) {
+        print("❌ [DEBUG] Error picking image: $e");
+        // Fallback to original path
+        setState(() {
+          _selectedImage = File(pickedFile.path);
+        });
+      }
     }
   }
 
@@ -400,8 +465,13 @@ class _EditProfilePageState extends State<EditProfilePage> {
       }
       success &= await profileService.updateSocialLinks(socialLinks);
 
-      // TODO: Handle avatar upload to Firebase Storage
-      // For now, we'll skip avatar upload
+      // Handle avatar upload
+      if (_selectedImage != null) {
+        // For now, save the local file path
+        // In a real app, you'd upload to Firebase Storage and get a URL
+        final avatarPath = _selectedImage!.path;
+        success &= await profileService.updateAvatarUrl(avatarPath);
+      }
 
       if (success) {
         if (mounted) {

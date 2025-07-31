@@ -188,6 +188,8 @@ class _OTPVerificationPageState extends State<OTPVerificationPage> {
       '+15555550007',
       '+15555550008',
       '+15555550009',
+      // Your custom test number
+      '+19999990000',
     ];
     return testPatterns.contains(phoneNumber);
   }

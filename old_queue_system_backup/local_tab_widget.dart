@@ -10,6 +10,7 @@ import './vlr_stream_page.dart';
 import './city_queue_list_page.dart';
 import './vlr_queue_list_page.dart';
 import './nearby_queue_list_page.dart';
+import '../../services/queue/index.dart';
 
 class LocalTabWidget extends StatefulWidget {
   const LocalTabWidget({Key? key}) : super(key: key);
@@ -92,19 +93,20 @@ class _LocalTabWidgetState extends State<LocalTabWidget> with WidgetsBindingObse
   }
 
   Future<void> _initializeLocation() async {
-    // Check location permission
     final hasPermission = await _locationService.hasLocationPermission();
     final isDeniedForever = await _locationService.isLocationPermissionDeniedForever();
     
+    if (mounted) {
     setState(() {
       _hasLocationPermission = hasPermission;
       _isPermissionDeniedForever = isDeniedForever;
     });
+    }
 
     if (hasPermission) {
       // Get current location
       final position = await _locationService.getCurrentLocation();
-      if (position != null) {
+      if (position != null && mounted) {
         setState(() {
           _currentPosition = position;
         });
@@ -384,34 +386,91 @@ class _LocalTabWidgetState extends State<LocalTabWidget> with WidgetsBindingObse
               children: [
                 Expanded(
                   child: ElevatedButton(
-                    onPressed: () {
+                    onPressed: () async {
                       if (type == 'nearby_users') {
-                        // Navigate to nearby queue list page
-                        // Generate locationId for nearby users (using current location as identifier)
+                        // Use new modular backend for joining local queue
                         final locationId = queue['locationId'] ?? 'nearby_unknown';
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => NearbyQueueListPage(
-                              locationId: locationId,
-                              locationName: label ?? 'Nearby Users',
-                              distance: double.tryParse((distance ?? '5').replaceAll(' miles', '')) ?? 5.0,
-                            ),
+                        final localQueueController = UnifiedQueueService().getLocalQueue(locationId);
+                        try {
+                          await localQueueController.joinQueue();
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('Joined local queue: $label'),
+                                backgroundColor: orangeColor,
+                              ),
+                            );
+                          }
+                        } catch (e) {
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('Failed to join queue: $e'),
+                                backgroundColor: Colors.red,
                           ),
                         );
+                          }
+                        }
                       } else if (type == 'verified_room') {
-                        // Navigate to VLR queue list page
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => VLRQueueListPage(
-                              roomId: queue['roomId'],
-                              roomName: queue['roomName'],
-                              description: 'Verified location room within $distance',
-                              location: queue['location'] ?? {'latitude': 0.0, 'longitude': 0.0},
-                            ),
+                        // Use new modular backend for joining VLR queue
+                        final roomId = queue['roomId'] ?? 'unknown_room';
+                        final roomName = queue['roomName'] ?? label;
+                        final vlrQueueController = UnifiedQueueService().getVLRQueue(roomId);
+                        try {
+                          await vlrQueueController.joinQueue();
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('Joined verified room: $roomName'),
+                                backgroundColor: orangeColor,
+                              ),
+                            );
+                          }
+                        } catch (e) {
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('Failed to join verified room: $e'),
+                                backgroundColor: Colors.red,
+                              ),
+                            );
+                          }
+                        }
+                      } else if (type == 'city_lobby') {
+                        // Use new modular backend for joining city queue
+                        final cityId = queue['cityId'] ?? queue['id'] ?? 'unknown_city';
+                        final cityName = queue['cityName'] ?? queue['name'] ?? label;
+                        final cityQueueController = UnifiedQueueService().getCityQueue(cityId);
+                        try {
+                          await cityQueueController.joinQueue();
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('Joined city lobby: $cityName'),
+                                backgroundColor: orangeColor,
+                              ),
+                            );
+                          }
+                        } catch (e) {
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('Failed to join city lobby: $e'),
+                                backgroundColor: Colors.red,
+                              ),
+                            );
+                          }
+                        }
+                      } else {
+                        // Fallback: show not supported
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('Queue type not supported for migration: $type'),
+                              backgroundColor: Colors.red,
                           ),
                         );
+                        }
                       }
                     },
                     style: ElevatedButton.styleFrom(

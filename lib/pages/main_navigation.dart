@@ -17,19 +17,25 @@ class MainNavigation extends StatefulWidget {
 class _MainNavigationState extends State<MainNavigation> {
   late int _currentIndex;
 
-  final List<Widget> _pages = [
-    const ProfilePage(),
-    const LiveQueuePage(),
-    const SpotlightPage(),
-    const LeaderboardPage(),
-    const WalletPage(),
-  ];
-
   @override
   void initState() {
     super.initState();
     _currentIndex = widget.initialTabIndex;
   }
+
+  void _navigateToSpotlight() {
+    setState(() {
+      _currentIndex = 2; // Spotlight tab index
+    });
+  }
+
+  List<Widget> get _pages => [
+    const ProfilePage(),
+    LiveQueuePage(onNavigateToSpotlight: _navigateToSpotlight),
+    const SpotlightPage(),
+    const LeaderboardPage(),
+    const WalletPage(),
+  ];
 
   @override
   Widget build(BuildContext context) {

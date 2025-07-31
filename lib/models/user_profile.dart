@@ -81,8 +81,8 @@ class UserProfile {
     );
   }
 
-  // Get display name (username if available, otherwise name)
-  String get displayName => username.isNotEmpty ? username : name;
+  // Get display name (name if available, otherwise username)
+  String get displayName => name.isNotEmpty ? name : username;
 
   // Get social link by platform
   String? getSocialLink(String platform) {
